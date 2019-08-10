@@ -1,7 +1,7 @@
 # Point-based Multi-view Stereo Network
 
 ## Introduction
-[PointMVSNet](http://hansf.me/projects/PMVSNet/) is a deep point-based deep framework for multi-view stereo (MVS). PointMVSNet directly processes the target scene as point clouds and predicts the depth in a coarse-to-fine manner. Our network leverages 3D geometry priors and 2D texture information jointly and effectively by fusing them into a feature-augmented point cloud, and processes the point cloud to estimate the 3D flow for each point. If you find this project useful for your research, please cite: 
+[PointMVSNet](http://hansf.me/projects/PMVSNet/){target="_blank"} is a deep point-based deep framework for multi-view stereo (MVS). PointMVSNet directly processes the target scene as point clouds and predicts the depth in a coarse-to-fine manner. Our network leverages 3D geometry priors and 2D texture information jointly and effectively by fusing them into a feature-augmented point cloud, and processes the point cloud to estimate the 3D flow for each point. If you find this project useful for your research, please cite: 
 ```
 @InProceedings{ChenPMVSNet2019ICCV,
     author = {Chen, rui and Han, Songfang and Xu, Jing and Su, Hao},
