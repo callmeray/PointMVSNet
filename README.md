@@ -9,7 +9,6 @@
     booktitle = {The IEEE International Conference on Computer Vision (ICCV)},
     year = {2019}
 }
-
 ```
 
 ## How to use
