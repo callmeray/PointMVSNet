@@ -3,20 +3,22 @@ import argparse
 import os.path as osp
 import logging
 import time
+import git
+
 import sys
+from path import Path
 sys.path.insert(0, osp.dirname(__file__) + '/..')
 
 import torch
 import torch.nn as nn
 
 from pointmvsnet.config import load_cfg_from_file
-from pointmvsnet.utils.io import mkdir
 from pointmvsnet.utils.logger import setup_logger
 from pointmvsnet.utils.torch_utils import set_random_seed
-from pointmvsnet.model import build_pointmvsnet as build_model
+from pointmvsnet.models import build_model
 from pointmvsnet.solver import build_optimizer, build_scheduler
 from pointmvsnet.utils.checkpoint import Checkpointer
-from pointmvsnet.dataset import build_data_loader
+from pointmvsnet.data_loader import build_data_loader
 from pointmvsnet.utils.tensorboard_logger import TensorboardLogger
 from pointmvsnet.utils.metric_logger import MetricLogger
 from pointmvsnet.utils.file_logger import file_logger
@@ -48,12 +50,14 @@ def train_model(model,
                 metric_fn,
                 image_scales,
                 inter_scales,
+                use_occ_pred,
                 isFlow,
                 data_loader,
                 optimizer,
                 curr_epoch,
                 tensorboard_logger,
                 log_period=1,
+                file_log_period=100,
                 output_dir="",
                 ):
     logger = logging.getLogger("pointmvsnet.train")
@@ -63,17 +67,19 @@ def train_model(model,
     total_iteration = data_loader.__len__()
     path_list = []
 
-    for iteration, data_batch in enumerate(data_loader):
+    iteration = 0
+    for data_batch in data_loader:
+        iteration += 1
         data_time = time.time() - end
         curr_ref_img_path = data_batch["ref_img_path"]
         path_list.extend(curr_ref_img_path)
         data_batch = {k: v.cuda(non_blocking=True) for k, v in data_batch.items() if isinstance(v, torch.Tensor)}
 
-        preds = model(data_batch, image_scales, inter_scales, isFlow)
+        preds = model(data_batch, image_scales, inter_scales, use_occ_pred, isFlow)
         optimizer.zero_grad()
 
-        loss_dict = loss_fn(preds, data_batch, isFlow)
-        metric_dict = metric_fn(preds, data_batch, isFlow)
+        loss_dict = loss_fn(preds)
+        metric_dict = metric_fn(preds, data_batch)
         losses = sum(loss_dict.values())
         meters.update(loss=losses, **loss_dict, **metric_dict)
 
@@ -106,7 +112,9 @@ def train_model(model,
             tensorboard_logger.add_scalars(loss_dict, curr_epoch * total_iteration + iteration, prefix="train")
             tensorboard_logger.add_scalars(metric_dict, curr_epoch * total_iteration + iteration, prefix="train")
 
-        if iteration % (100 * log_period) == 0:
+        if file_log_period == 0:
+            continue
+        if iteration % file_log_period == 0:
             file_logger(data_batch, preds, curr_epoch * total_iteration + iteration, output_dir, prefix="train")
 
     return meters
@@ -117,11 +125,13 @@ def validate_model(model,
                    metric_fn,
                    image_scales,
                    inter_scales,
+                   use_occ_pred,
                    isFlow,
                    data_loader,
                    curr_epoch,
                    tensorboard_logger,
                    log_period=1,
+                   file_log_period=100,
                    output_dir="",
                    ):
     logger = logging.getLogger("pointmvsnet.validate")
@@ -130,15 +140,16 @@ def validate_model(model,
     end = time.time()
     total_iteration = data_loader.__len__()
     with torch.no_grad():
-        for iteration, data_batch in enumerate(data_loader):
+        iteration = 0
+        for data_batch in data_loader:
+            iteration += 1
             data_time = time.time() - end
-            curr_ref_img_path = data_batch["ref_img_path"]
 
             data_batch = {k: v.cuda(non_blocking=True) for k, v in data_batch.items() if isinstance(v, torch.Tensor)}
 
-            preds = model(data_batch, image_scales, inter_scales, isFlow)
-            loss_dict = loss_fn(preds, data_batch, isFlow)
-            metric_dict = metric_fn(preds, data_batch, isFlow)
+            preds = model(data_batch, image_scales, inter_scales, use_occ_pred, isFlow)
+            loss_dict = loss_fn(preds)
+            metric_dict = metric_fn(preds, data_batch)
             losses = sum(loss_dict.values())
             meters.update(loss=losses, **loss_dict, **metric_dict)
             batch_time = time.time() - end
@@ -161,7 +172,9 @@ def validate_model(model,
                 )
                 tensorboard_logger.add_scalars(meters.meters, curr_epoch * total_iteration + iteration, prefix="valid")
 
-            if iteration % (100 * log_period) == 0:
+            if file_log_period == 0:
+                continue
+            if iteration % file_log_period == 0:
                 file_logger(data_batch, preds, curr_epoch * total_iteration + iteration, output_dir, prefix="valid")
 
     return meters
@@ -215,17 +228,19 @@ def train(cfg, output_dir=""):
                                    metric_fn,
                                    image_scales=cfg.MODEL.TRAIN.IMG_SCALES,
                                    inter_scales=cfg.MODEL.TRAIN.INTER_SCALES,
+                                   use_occ_pred=(cur_epoch > cfg.SCHEDULER.GT_OCC_EPOCH),
                                    isFlow=(cur_epoch > cfg.SCHEDULER.INIT_EPOCH),
                                    data_loader=train_data_loader,
                                    optimizer=optimizer,
                                    curr_epoch=epoch,
                                    tensorboard_logger=tensorboard_logger,
                                    log_period=cfg.TRAIN.LOG_PERIOD,
+                                   file_log_period=cfg.TRAIN.FILE_LOG_PERIOD,
                                    output_dir=output_dir,
                                    )
         epoch_time = time.time() - start_time
         logger.info("Epoch[{}]-Train {}  total_time: {:.2f}s".format(
-            cur_epoch, train_meters.summary_str, epoch_time))
+            epoch, train_meters.summary_str, epoch_time))
 
         # checkpoint
         if cur_epoch % ckpt_period == 0 or cur_epoch == max_epoch:
@@ -242,14 +257,16 @@ def train(cfg, output_dir=""):
                                         metric_fn,
                                         image_scales=cfg.MODEL.VAL.IMG_SCALES,
                                         inter_scales=cfg.MODEL.VAL.INTER_SCALES,
+                                        use_occ_pred=cfg.TEST.USE_OCC_PRED,
                                         isFlow=(cur_epoch > cfg.SCHEDULER.INIT_EPOCH),
                                         data_loader=val_data_loader,
                                         curr_epoch=epoch,
                                         tensorboard_logger=tensorboard_logger,
                                         log_period=cfg.TEST.LOG_PERIOD,
+                                        file_log_period=cfg.TEST.FILE_LOG_PERIOD,
                                         output_dir=output_dir,
                                         )
-            logger.info("Epoch[{}]-Val {}".format(cur_epoch, val_meters.summary_str))
+            logger.info("Epoch[{}]-Val {}".format(epoch, val_meters.summary_str))
 
             # best validation
             cur_metric = val_meters.meters[cfg.TRAIN.VAL_METRIC].global_avg
@@ -268,6 +285,9 @@ def main():
     args = parse_args()
     num_gpus = torch.cuda.device_count()
 
+    if len(args.opts) == 1:
+        args.opts = args.opts[0].strip().split(" ")
+
     cfg = load_cfg_from_file(args.config_file)
     cfg.merge_from_list(args.opts)
     cfg.freeze()
@@ -277,9 +297,16 @@ def main():
         config_path = osp.splitext(args.config_file)[0]
         config_path = config_path.replace("configs", "outputs")
         output_dir = output_dir.replace('@', config_path)
-        mkdir(output_dir)
+        output_dir = Path(output_dir)
+        output_dir.makedirs_p()
 
     logger = setup_logger("pointmvsnet", output_dir, prefix="train")
+    try:
+        repo = git.Repo(path=output_dir, search_parent_directories=True)
+        sha = repo.head.object.hexsha
+        logger.info("Git SHA: {}".format(sha))
+    except:
+        logger.info("No Git info")
     logger.info("Using {} GPUs".format(num_gpus))
     logger.info(args)
 

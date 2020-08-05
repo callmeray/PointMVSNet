@@ -8,3 +8,5 @@ Pillow>=3.1.2
 yacs
 tqdm
 tensorboardX
+path
+GitPython

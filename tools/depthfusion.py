@@ -8,19 +8,17 @@ convert Point-MVSNet output to Gipuma format for post-processing.
 from __future__ import print_function
 
 import argparse
+import os
+import cv2
 import os.path as osp
 from struct import *
+from path import Path
 
 from pointmvsnet.utils.io import *
 
 
 def mkdir(path):
-    import errno
-    try:
-        os.makedirs(path)
-    except OSError as e:
-        if e.errno != errno.EEXIST:
-            raise
+    Path(path).makedirs_p()
 
 
 def read_gipuma_dmb(path):

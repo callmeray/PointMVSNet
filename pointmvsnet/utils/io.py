@@ -1,21 +1,18 @@
-import os
 import re
 import numpy as np
 import sys
-import errno
-import pickle
-import cv2
-import torch
 
 
-def mkdir(path):
-    os.makedirs(path, exist_ok=True)
-
-
-def load_cam_dtu(file, num_depth=0, interval_scale=1.0):
+def load_cam_dtu(file_path, num_depth, interval_scale=1.0):
     """ read camera txt file """
-    cam = np.zeros((2, 4, 4))
+    file = open(file_path)
     words = file.read().split()
+    assert len(words) in [29, 30, 31], "Wrong format for camera file"
+    # cam: [[[R t]
+    #       [0 1]],
+    #       [[K 0]
+    #       [depth_start, depth_interval, num_depth, depth_end]]]
+    cam = np.zeros((2, 4, 4))
     # read extrinsic
     for i in range(0, 4):
         for j in range(0, 4):
@@ -34,26 +31,29 @@ def load_cam_dtu(file, num_depth=0, interval_scale=1.0):
         cam[1][3][2] = num_depth
         cam[1][3][3] = cam[1][3][0] + cam[1][3][1] * (num_depth - 1)
     elif len(words) == 30:
-        cam[1][3][0] = words[27]
-        cam[1][3][1] = float(words[28]) * interval_scale
-        cam[1][3][2] = words[29]
-        cam[1][3][3] = cam[1][3][0] + cam[1][3][1] * (num_depth - 1)
-    elif len(words) == 31:
-        cam[1][3][0] = words[27]
-        cam[1][3][1] = float(words[28]) * interval_scale
-        cam[1][3][2] = words[29]
-        cam[1][3][3] = words[30]
+        depth_start = float(words[27])
+        origin_depth_interval = float(words[28])
+        origin_num_depth = int(words[29])
+        depth_end = depth_start + (origin_num_depth - 1) * origin_depth_interval
+        depth_interval = (depth_end - depth_start) / (num_depth - 1)
+        cam[1][3][0] = depth_start
+        cam[1][3][1] = depth_interval
+        cam[1][3][2] = num_depth
+        cam[1][3][3] = depth_end
     else:
-        cam[1][3][0] = 0
-        cam[1][3][1] = 0
-        cam[1][3][2] = 0
-        cam[1][3][3] = 0
+        depth_start = float(words[27])
+        depth_end = float(words[30])
+        depth_interval = (depth_end - depth_start) / (num_depth - 1)
+        cam[1][3][0] = depth_start
+        cam[1][3][1] = depth_interval
+        cam[1][3][2] = num_depth
+        cam[1][3][3] = depth_end
 
+    file.close()
     return cam
 
 
-def write_cam_dtu(file, cam):
-    # f = open(file, "w")
+def write_cam(file, cam):
     f = open(file, "w")
 
     f.write('extrinsic\n')
@@ -74,15 +74,11 @@ def write_cam_dtu(file, cam):
 
     f.close()
 
+    return
+
 
 def load_pfm(file):
     file = open(file, 'rb')
-
-    color = None
-    width = None
-    height = None
-    scale = None
-    endian = None
 
     header = file.readline().rstrip()
     if header.decode("ascii") == 'PF':
@@ -110,7 +106,7 @@ def load_pfm(file):
 
     data = np.reshape(data, shape)
     data = np.flipud(data)
-    return data, scale
+    return data
 
 
 def write_pfm(file, image, scale=1):
@@ -143,3 +139,5 @@ def write_pfm(file, image, scale=1):
     file.write(image_string)
 
     file.close()
+
+    return

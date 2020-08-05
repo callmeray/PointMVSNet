@@ -4,6 +4,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
+
 def set_random_seed(seed):
     if seed < 0:
         return
@@ -55,6 +56,25 @@ def get_knn_3d(xyz, kernel_size=5, knn=20):
     idx = torch.arange(depth * height * width).to(xyz.device)
     idx = idx.view(1, -1, 1).expand(batch_size, -1, knn)
     idx = idx + (d_offset * height * width) + (h_offset * width) + w_offset
+
+    idx = torch.clamp(idx, 0, depth * height * width - 1)
+
+    return idx
+
+
+def get_flat_nn(xyz, knn=16):
+    batch_size, _, depth, height, width = xyz.shape
+    assert depth == 1
+    assert knn == 16
+    h_offset = torch.tensor([0, 0, -1, 1, -1, -1, 1, 1, 0, 0, -2, 2, -1, -1, 1, 1]).long().to(xyz.device)
+    w_offset = torch.tensor([-1, 1, 0, 0, -1, 1, -1, 1, -2, 2, 0, 0, -2, 2, -2, 2]).long().to(xyz.device)
+
+    h_offset = h_offset.view(1, 1, -1).expand(batch_size, -1, knn)
+    w_offset = w_offset.view(1, 1, -1).expand(batch_size, -1, knn)
+
+    idx = torch.arange(depth * height * width).to(xyz.device)
+    idx = idx.view(1, -1, 1).expand(batch_size, -1, knn)
+    idx = idx + (width * h_offset) + w_offset
 
     idx = torch.clamp(idx, 0, depth * height * width - 1)
 

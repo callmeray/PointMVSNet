@@ -1,7 +1,6 @@
 from yacs.config import CfgNode as CN
 from yacs.config import load_cfg
 
-
 _C = CN()
 
 # if set to @, the filename of config will be used by default
@@ -18,30 +17,31 @@ _C.RNG_SEED = 1
 # -----------------------------------------------------------------------------
 
 _C.DATA = CN()
+_C.DATA.DATASET = "DTU"
 
 _C.DATA.NUM_WORKERS = 1
 
 _C.DATA.TRAIN = CN()
 _C.DATA.TRAIN.ROOT_DIR = ""
 _C.DATA.TRAIN.NUM_VIEW = 3
-_C.DATA.TRAIN.NUM_VIRTUAL_PLANE = 48
-_C.DATA.TRAIN.INTER_SCALE = 4.24
+_C.DATA.TRAIN.NUM_DEPTH = 48
+_C.DATA.TRAIN.INTERVAL_SCALE = 4.24
 
-
-_C.DATA.VAL = CN()
 _C.DATA.VAL = CN()
 _C.DATA.VAL.ROOT_DIR = ""
 _C.DATA.VAL.NUM_VIEW = 3
 
-
-_C.DATA.TEST = CN()
 _C.DATA.TEST = CN()
 _C.DATA.TEST.ROOT_DIR = ""
 _C.DATA.TEST.NUM_VIEW = 3
 _C.DATA.TEST.IMG_HEIGHT = 512
 _C.DATA.TEST.IMG_WIDTH = 640
-_C.DATA.TEST.NUM_VIRTUAL_PLANE = 48
-_C.DATA.TEST.INTER_SCALE = 4.24
+_C.DATA.TEST.NUM_DEPTH = 48
+_C.DATA.TEST.INTERVAL_SCALE = 4.24
+# input depth for refinement
+_C.DATA.TEST.DEPTH_FOLDER = ""
+_C.DATA.TEST.DEPTH_IN_NAME = ""
+_C.DATA.TEST.PROB_IN_NAME = "init"
 
 # -----------------------------------------------------------------------------
 # MODEL
@@ -49,14 +49,45 @@ _C.DATA.TEST.INTER_SCALE = 4.24
 
 _C.MODEL = CN()
 _C.MODEL.WEIGHT = ""
+# Visibility-aware model: ["avg", "max", "var",
+# "vis-avg", "vis-max", "vis-var", "vis-var-gt",
+# "reg", "mvsnet", "rmvsnet"]
+_C.MODEL.VIS_MODEL = "var"
+_C.MODEL.METRIC_DEPTH_INTERVAL = 4.0  # mm
+_C.MODEL.METRIC_MASKED = False
 
-_C.MODEL.EDGE_CHANNELS = ()
+# Whether to use group normalization
+_C.MODEL.GROUP_NORM = False
+_C.MODEL.NUM_GROUP = 4
+# Whether to train end2end
+_C.MODEL.END2END = True
+
+_C.MODEL.EDGE_CHANNELS = (32, 32, 64)
 _C.MODEL.FLOW_CHANNELS = (64, 64, 16, 1)
-_C.MODEL.NUM_VIRTUAL_PLANE = 48
+_C.MODEL.INVERSE_DEPTH = False
+
 _C.MODEL.IMG_BASE_CHANNELS = 8
-_C.MODEL.VOL_BASE_CHANNELS = 8
 
 _C.MODEL.VALID_THRESHOLD = 8.0
+_C.MODEL.MASKED_LOSS = False
+_C.MODEL.VOL_BASE_CHANNELS = 8
+
+# "vis-var" options
+_C.MODEL.OCC_CHANNELS = (16, 4)
+_C.MODEL.OCC_DEPTH_CHANNELS = 0
+_C.MODEL.OCC_SHARED_CHANNELS = (128, 128, 64)
+_C.MODEL.OCC_GLOBAL_CHANNELS = (64, 16, 4)
+_C.MODEL.OCC_INTERPOLATION = "nearest"
+_C.MODEL.OCC_LOSS_WEIGHT = 0.0
+
+# "vis-avg", "vis-max" options
+_C.MODEL.FEATURE_SHARED_CHANNELS = (128, 128, 64)
+
+# "mvsnet" options
+_C.MODEL.MVSNET_REFINE = True
+
+# "rmvsnet" options
+_C.MODEL.GRU_CHANNELS_LIST = (16, 4, 2)
 
 _C.MODEL.TRAIN = CN()
 _C.MODEL.TRAIN.IMG_SCALES = (0.125, 0.25)
@@ -99,6 +130,7 @@ _C.SCHEDULER = CN()
 _C.SCHEDULER.TYPE = ""
 
 _C.SCHEDULER.INIT_EPOCH = 2
+_C.SCHEDULER.GT_OCC_EPOCH = -1
 _C.SCHEDULER.MAX_EPOCH = 2
 
 _C.SCHEDULER.StepLR = CN()
@@ -116,19 +148,18 @@ _C.TRAIN = CN()
 
 _C.TRAIN.BATCH_SIZE = 1
 
-
 # The period to save a checkpoint
 _C.TRAIN.CHECKPOINT_PERIOD = 1000
-_C.TRAIN.LOG_PERIOD = 10
+_C.TRAIN.LOG_PERIOD = 50
+_C.TRAIN.FILE_LOG_PERIOD = 100000
 # The period to validate
 _C.TRAIN.VAL_PERIOD = 0
 # Data augmentation. The format is "method" or ("method", *args)
-# For example, ("PointCloudRotate", ("PointCloudRotatePerturbation",0.1, 0.2))
 _C.TRAIN.AUGMENTATION = ()
 
 # Regex patterns of modules and/or parameters to freeze
-# For example, ("bn",) will freeze all batch normalization layers' weight and bias;
-# And ("module:bn",) will freeze all batch normalization layers' running mean and var.
+# For example, ("bn",) will freeze all batch normalization layers" weight and bias;
+# And ("module:bn",) will freeze all batch normalization layers" running mean and var.
 _C.TRAIN.FROZEN_PATTERNS = ()
 
 _C.TRAIN.VAL_METRIC = "<1_cor"
@@ -147,7 +178,9 @@ _C.TEST.WEIGHT = ""
 # Data augmentation.
 _C.TEST.AUGMENTATION = ()
 
-_C.TEST.LOG_PERIOD = 10
+_C.TEST.USE_OCC_PRED = True
+_C.TEST.LOG_PERIOD = 50
+_C.TEST.FILE_LOG_PERIOD = 100000
 
 
 def load_cfg_from_file(cfg_filename):
@@ -166,8 +199,3 @@ def load_cfg_from_file(cfg_filename):
     cfg_template = _C
     cfg_template.merge_from_other_cfg(cfg)
     return cfg_template
-
-
-
-
-

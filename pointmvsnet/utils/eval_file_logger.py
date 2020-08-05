@@ -1,12 +1,10 @@
 import numpy as np
 import os.path as osp
 import cv2
-import scipy
+from path import Path
 
-import torch
-import torch.nn.functional as F
 
-from pointmvsnet.utils.io import mkdir, write_cam_dtu, write_pfm
+from pointmvsnet.utils.io import write_cam, write_pfm
 
 
 def eval_file_logger(data_batch, preds, ref_img_path, folder):
@@ -18,7 +16,7 @@ def eval_file_logger(data_batch, preds, ref_img_path, folder):
     scene_folder = osp.join(eval_folder, folder, scene)
 
     if not osp.isdir(scene_folder):
-        mkdir(scene_folder)
+        Path(scene_folder).makedirs_p()
         print("**** {} ****".format(scene))
 
     out_index = int(l[-1][5:8]) - 1
@@ -42,7 +40,7 @@ def eval_file_logger(data_batch, preds, ref_img_path, folder):
     out_init_cam_path = scene_folder + ('/cam_%08d_init.txt' % out_index)
     init_cam_paras = ref_cam_paras.copy()
     init_cam_paras[1, :2, :3] *= (float(init_depth_map.shape[0]) / ref_image.shape[0])
-    write_cam_dtu(out_init_cam_path, init_cam_paras)
+    write_cam(out_init_cam_path, init_cam_paras)
 
     interval_list = np.array([-2.0, -1.0, 0.0, 1.0, 2.0])
     interval_list = np.reshape(interval_list, [1, 1, -1])
@@ -73,7 +71,7 @@ def eval_file_logger(data_batch, preds, ref_img_path, folder):
                 out_flow_cam_path = scene_folder + "/cam_{:08d}_{}.txt".format(out_index, k)
                 flow_cam_paras = ref_cam_paras.copy()
                 flow_cam_paras[1, :2, :3] *= (float(out_flow_depth_map.shape[0]) / float(ref_image.shape[0]))
-                write_cam_dtu(out_flow_cam_path, flow_cam_paras)
+                write_cam(out_flow_cam_path, flow_cam_paras)
 
                 world_pts = depth2pts_np(out_flow_depth_map, flow_cam_paras[1][:3, :3], flow_cam_paras[0])
                 save_points(osp.join(scene_folder, "{:08d}_{}pts.xyz".format(out_index, k)), world_pts)

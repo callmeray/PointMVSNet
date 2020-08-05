@@ -1,17 +1,16 @@
 import numpy as np
 import os.path as osp
 import cv2
+from path import Path
 
 import torch
-import torch.nn.functional as F
 
-from pointmvsnet.utils.io import mkdir
 from pointmvsnet.functions.functions import get_pixel_grids
 
 
 def file_logger(data_batch, preds, step, output_dir, prefix):
     step_dir = osp.join(output_dir, "{}_step{:05d}".format(prefix, step))
-    mkdir(step_dir)
+    Path(step_dir).makedirs_p()
     print("start saving files in ", step_dir)
 
     img_list = data_batch["img_list"]
@@ -20,11 +19,9 @@ def file_logger(data_batch, preds, step, output_dir, prefix):
     cam_params_list = data_batch["cam_params_list"]
 
     for i in range(num_view):
-        np.savetxt(osp.join(step_dir, "img{}.txt".format(i)), img_list[0, i, 0].detach().cpu().numpy(), fmt="%.4f")
-        np.savetxt(osp.join(step_dir, "cam{}_extrinsic.txt".format(i)), cam_params_list[0, i, 0].detach().cpu().numpy(), fmt="%.4f")
-        np.savetxt(osp.join(step_dir, "cam{}_intrinsic.txt".format(i)), cam_params_list[0, i, 1].detach().cpu().numpy(), fmt="%.4f")
-    np.savetxt(osp.join(step_dir, "gt_depth_img.txt"), data_batch["gt_depth_img"][0, 0].detach().cpu().numpy(), fmt="%.4f")
-    np.savetxt(osp.join(step_dir, "coarse_depth_img.txt"), preds["coarse_depth_map"][0, 0].detach().cpu().numpy(), fmt="%.4f")
+        img_view = img_list[0, i].detach().permute(1, 2, 0).cpu().numpy()
+        img_view = (img_view * 127.5 + 127.5).astype(np.uint8)
+        cv2.imwrite(osp.join(step_dir, "img_{}.png".format(i)), img_view)
 
     cam_extrinsic = cam_params_list[0, 0, 0, :3, :4].clone()  # (3, 4)
 

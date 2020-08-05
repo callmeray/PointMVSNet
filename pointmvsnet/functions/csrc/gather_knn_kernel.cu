@@ -81,7 +81,7 @@ __global__ void GatherKNNBackwardKernel(
       + inst_offset * index.strides[1]
       + batch_offset * index.strides[0];
 
-    int64_t indexValue = index.data[indexOffset] - TH_INDEX_BASE;
+    int64_t indexValue = index.data[indexOffset] - 0;
     assert(indexValue >= 0 && indexValue < num_inst);
     tensorOffset += indexValue * grad_input.strides[2];
     atomicAdd(&grad_input.data[tensorOffset], grad_output.data[srcOffset]);

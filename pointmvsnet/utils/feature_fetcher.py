@@ -1,8 +1,6 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import random
-import numpy as np
 
 
 class FeatureFetcher(nn.Module):
@@ -19,6 +17,8 @@ class FeatureFetcher(nn.Module):
         :param cam_extrinsics: torch.tensor, [B, V, 3, 4], [R|t], p_cam = R*p_world + t
         :return:
             pts_feature: torch.tensor, [B, V, C, N]
+            valid_mask: torch.tensor, [B, V, 1, N]
+            z: torch.tensor, [B, V, 1, N]
         """
         batch_size, num_view, channels, height, width = list(feature_maps.size())
         feature_maps = feature_maps.view(batch_size * num_view, channels, height, width)
@@ -52,12 +52,26 @@ class FeatureFetcher(nn.Module):
             grid[..., 0] = (grid[..., 0] / float(width - 1)) * 2 - 1.0
             grid[..., 1] = (grid[..., 1] / float(height - 1)) * 2 - 1.0
 
+            valid_mask = (torch.abs(grid[..., 0]) < 1.00001).float() * (torch.abs(grid[..., 1]) < 1.00001).float()
+            valid_mask = valid_mask.view(batch_size, num_view, 1, num_pts)
+            z = z.view(batch_size, num_view, 1, num_pts)
+
+        grid[torch.isnan(grid)] = 100.0
         pts_feature = F.grid_sample(feature_maps, grid, mode=self.mode)
+        if torch.sum(torch.isnan(pts_feature).float()) > 0.0:
+            print("NaN in pts feature: ", torch.sum(torch.isnan(pts_feature).float()))
+            print("NaN in feature_maps: ", torch.sum(torch.isnan(feature_maps).float()))
+            print("NaN in grid: ", torch.sum(torch.isnan(grid).float()))
+            print("NaN in uv: ", torch.sum(torch.isnan(uv).float()))
+            print("NaN in normal_uv: ", torch.sum(torch.isnan(normal_uv).float()))
+            print("Cam intrinsics: ", cam_intrinsics)
+            print("feature map shape: ", feature_maps.shape)
+
         pts_feature = pts_feature.squeeze(3)
 
         pts_feature = pts_feature.view(batch_size, num_view, channels, num_pts)
 
-        return pts_feature
+        return pts_feature, valid_mask, z
 
 
 def test_feature_fetching():

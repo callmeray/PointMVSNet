@@ -3,7 +3,7 @@
 import torch
 
 from pointmvsnet.nn.functional import pdist
-from .gather_knn import gather_knn
+from pointmvsnet.functions.gather_knn import gather_knn
 
 
 def get_knn_inds(pdist, k=20, remove=False):
@@ -173,3 +173,11 @@ def get_propability_map(cv, depth_map, depth_start, depth_interval):
         prob_map = prob_map.view(batch_size, 1, height, width)
 
     return prob_map
+
+
+if __name__ == '__main__':
+    feature = torch.rand(2, 3, 8).cuda()
+    knn_inds = torch.zeros(2, 8, 4).long().cuda()
+
+    edge_feature = construct_edge_feature(feature, knn_inds)
+    print("edge_feature: ", edge_feature.shape)

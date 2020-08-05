@@ -1,7 +1,22 @@
-# Point-based Multi-view Stereo Network
+# Point-based Multi-view Stereo Network & Visibility-aware Point-based Multi-view Stereo Network
 
 ## Introduction
-[PointMVSNet](http://hansf.me/projects/PMVSNet/) is a deep point-based deep framework for multi-view stereo (MVS). PointMVSNet directly processes the target scene as point clouds and predicts the depth in a coarse-to-fine manner. Our network leverages 3D geometry priors and 2D texture information jointly and effectively by fusing them into a feature-augmented point cloud, and processes the point cloud to estimate the 3D flow for each point. If you find this project useful for your research, please cite: 
+[PointMVSNet](http://hansf.me/projects/PMVSNet/) is a deep point-based deep framework for multi-view stereo (MVS). PointMVSNet directly processes the target scene as point clouds and predicts the depth in a coarse-to-fine manner. Our network leverages 3D geometry priors and 2D texture information jointly and effectively by fusing them into a feature-augmented point cloud, and processes the point cloud to estimate the 3D flow for each point. 
+[VAPointMVSNet](https://ieeexplore.ieee.org/abstract/document/9076298) extends PointMVSNet with visibility-aware multi-view feature aggregations, which allows the network to aggregate multi-view appearance cues while taking into account occlusions.
+
+If you find this project useful for your research, please cite: 
+
+```
+@ARTICLE{ChenVAPMVSNet2020TPAMI,
+  author={Chen, Rui and Han, Songfang and Xu, Jing and Su, Hao},
+  journal={IEEE Transactions on Pattern Analysis and Machine Intelligence}, 
+  title={Visibility-Aware Point-Based Multi-View Stereo Network}, 
+  year={2020},
+  volume={},
+  number={},
+  pages={1-1},}
+```
+
 ```
 @InProceedings{ChenPMVSNet2019ICCV,
     author = {Chen, Rui and Han, Songfang and Xu, Jing and Su, Hao},

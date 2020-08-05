@@ -1,12 +1,8 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 import logging
-import os
 import sys
 import time
-import numpy as np
-import torch
-from os.path import join
-import cv2
+from path import Path
 
 
 def setup_logger(name, save_dir, prefix="", timestamp=True):
@@ -21,7 +17,7 @@ def setup_logger(name, save_dir, prefix="", timestamp=True):
     if save_dir:
         timestamp = time.strftime(".%m_%d_%H_%M_%S") if timestamp else ""
         prefix = "." + prefix if prefix else ""
-        log_file = os.path.join(save_dir, "log{}.txt".format(prefix + timestamp))
+        log_file = Path(save_dir) / "log{}.txt".format(prefix + timestamp)
         fh = logging.FileHandler(log_file)
         fh.setLevel(logging.INFO)
         fh.setFormatter(formatter)
@@ -33,4 +29,3 @@ def setup_logger(name, save_dir, prefix="", timestamp=True):
 
 def shutdown_logger(logger):
     logger.handlers = []
-

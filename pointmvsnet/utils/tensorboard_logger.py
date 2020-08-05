@@ -1,18 +1,18 @@
 import time
 import os.path as osp
+from path import Path
 import torch
 
 from .metric_logger import AverageMeter
 from tensorboardX import SummaryWriter
-from .io import mkdir
 
 _KEYWORDS = ("loss", "pct")
 
 
 class TensorboardLogger(object):
     def __init__(self, log_dir, keywords=_KEYWORDS):
-        self.log_dir = osp.join(log_dir, "events.{}".format(time.strftime("%m_%d_%H_%M_%S")))
-        mkdir(self.log_dir)
+        self.log_dir = Path(log_dir) / "events.{}".format(time.strftime("%m_%d_%H_%M_%S"))
+        self.log_dir.makedirs_p()
         self.keywords = keywords
         self.writer = SummaryWriter(log_dir=self.log_dir)
 
